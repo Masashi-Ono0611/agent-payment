@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useAccount } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import WalletView from "@/components/WalletView";
 import ChatView from "@/components/ChatView";
 import ActivityView from "@/components/ActivityView";
@@ -17,6 +19,7 @@ export interface WalletInfo {
 export type TabType = "wallet" | "chat" | "activity";
 
 export default function Home() {
+  const { address: connectedAddress, isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [transactions, setTransactions] = useState<TransactionResult[]>([]);
@@ -81,10 +84,11 @@ export default function Home() {
             PayAgent
           </span>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
-          <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: "var(--success)" }} />
-          Base Sepolia
-        </div>
+        <ConnectButton
+          chainStatus="icon"
+          accountStatus="avatar"
+          showBalance={false}
+        />
       </header>
 
       {/* Main Content */}
@@ -106,6 +110,7 @@ export default function Home() {
               wallets={wallets}
               onWalletCreated={handleWalletCreated}
               onRefreshBalance={refreshBalance}
+              connectedAddress={isConnected ? connectedAddress : undefined}
             />
           )}
           {activeTab === "activity" && (

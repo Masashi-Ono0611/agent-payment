@@ -96,12 +96,15 @@ Guidelines:
 - Format currency amounts nicely (e.g., "0.001 ETH", "5.00 USDC").`;
 
 export async function POST(req: Request) {
-  const { messages: uiMessages, wallets } = await req.json();
+  const { messages: uiMessages, wallets, connectedAddress } = await req.json();
   const modelMessages = await convertToModelMessages(uiMessages);
 
   // Build dynamic system prompt with wallet context
   const knownWallets = wallets as { name: string; address: string }[] | undefined;
   let systemPrompt = SYSTEM_PROMPT;
+  if (connectedAddress) {
+    systemPrompt += `\n\nThe user has connected their browser wallet: ${connectedAddress}\nYou can use this as a recipient address when the user says "send to my wallet" or "send to me".`;
+  }
   if (knownWallets && knownWallets.length > 0) {
     const walletList = knownWallets
       .map((w: { name: string; address: string }) => `- "${w.name}": ${w.address}`)

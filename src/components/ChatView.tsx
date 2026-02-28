@@ -9,6 +9,7 @@ interface ChatViewProps {
   wallets: WalletInfo[];
   onWalletCreated: (wallet: WalletInfo) => void;
   onRefreshBalance: (address: string) => void;
+  connectedAddress?: string;
 }
 
 // Helper to extract tool name from part type (e.g., "tool-create_wallet" → "create_wallet")
@@ -24,13 +25,16 @@ export default function ChatView({
   wallets,
   onWalletCreated,
   onRefreshBalance,
+  connectedAddress,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
 
-  // Keep a ref to wallets so the transport body always has latest data
+  // Keep refs so the transport body always has latest data
   const walletsRef = useRef(wallets);
   walletsRef.current = wallets;
+  const connectedRef = useRef(connectedAddress);
+  connectedRef.current = connectedAddress;
 
   const transport = useMemo(
     () =>
@@ -40,6 +44,7 @@ export default function ChatView({
             name: w.name,
             address: w.address,
           })),
+          connectedAddress: connectedRef.current,
         }),
       }),
     []
