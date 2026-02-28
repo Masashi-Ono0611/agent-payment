@@ -1,19 +1,23 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import WalletPanel from "@/components/WalletPanel";
-import FaucetPanel from "@/components/FaucetPanel";
-import TransferPanel, { TransactionResult } from "@/components/TransferPanel";
-import TransactionHistory from "@/components/TransactionHistory";
+import WalletView from "@/components/WalletView";
+import SendView from "@/components/SendView";
+import ActivityView from "@/components/ActivityView";
+import BottomNav from "@/components/BottomNav";
+import { TransactionResult } from "@/components/SendView";
 
-interface WalletInfo {
+export interface WalletInfo {
   name: string;
   address: string;
   ethBalance?: string;
   usdcBalance?: string;
 }
 
+export type TabType = "wallet" | "send" | "activity";
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>("wallet");
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [transactions, setTransactions] = useState<TransactionResult[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -27,11 +31,7 @@ export default function Home() {
         setWallets((prev) =>
           prev.map((w) =>
             w.address === address
-              ? {
-                  ...w,
-                  ethBalance: json.data.eth,
-                  usdcBalance: json.data.usdc,
-                }
+              ? { ...w, ethBalance: json.data.eth, usdcBalance: json.data.usdc }
               : w
           )
         );
@@ -64,60 +64,56 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] p-6">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Agent Payment Demo
-          </h1>
-          <p className="text-gray-400">
-            Coinbase CDP SDK &middot; Base Sepolia Testnet
-          </p>
-          <div className="flex items-center gap-2 mt-3">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-xs text-gray-500">Base Sepolia</span>
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-primary)" }}>
+      {/* Header */}
+      <header className="sticky top-0 z-30 px-5 pt-4 pb-3 flex items-center justify-between" style={{ background: "var(--bg-primary)" }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--accent)" }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="3" y="3" width="10" height="10" rx="2" fill="white"/>
+            </svg>
           </div>
+          <span className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            Agent Pay
+          </span>
         </div>
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
+          <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: "var(--success)" }} />
+          Base Sepolia
+        </div>
+      </header>
 
-        {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left column */}
-          <div className="space-y-6">
-            <WalletPanel
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto pb-24">
+        <div className="max-w-lg mx-auto px-4">
+          {activeTab === "wallet" && (
+            <WalletView
               wallets={wallets}
               onWalletCreated={handleWalletCreated}
               onRefreshBalance={refreshBalance}
+              onRefreshAll={refreshAllBalances}
               loading={balanceLoading}
             />
-            <FaucetPanel wallets={wallets} onFunded={refreshAllBalances} />
-          </div>
-
-          {/* Right column */}
-          <div className="space-y-6">
-            <TransferPanel
+          )}
+          {activeTab === "send" && (
+            <SendView
               wallets={wallets}
               onTransferComplete={handleTransferComplete}
+              onNavigateToWallet={() => setActiveTab("wallet")}
             />
-            <TransactionHistory transactions={transactions} />
-          </div>
+          )}
+          {activeTab === "activity" && (
+            <ActivityView transactions={transactions} />
+          )}
         </div>
+      </main>
 
-        {/* Footer */}
-        <footer className="mt-12 text-center text-xs text-gray-600">
-          <p>
-            Powered by{" "}
-            <a
-              href="https://docs.cdp.coinbase.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              Coinbase Developer Platform
-            </a>
-          </p>
-        </footer>
-      </div>
+      {/* Bottom Navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        txCount={transactions.length}
+      />
     </div>
   );
 }

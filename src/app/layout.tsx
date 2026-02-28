@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,8 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agent Payment Demo | Coinbase CDP",
-  description: "Demo app for agent payments using Coinbase CDP SDK on Base Sepolia",
+  title: "Agent Pay",
+  description: "Agent payments powered by Coinbase CDP on Base Sepolia",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#0d1117",
 };
 
 export default function RootLayout({
