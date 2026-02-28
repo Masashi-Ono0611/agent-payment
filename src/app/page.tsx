@@ -2,10 +2,10 @@
 
 import { useState, useCallback } from "react";
 import WalletView from "@/components/WalletView";
-import SendView from "@/components/SendView";
+import ChatView from "@/components/ChatView";
 import ActivityView from "@/components/ActivityView";
 import BottomNav from "@/components/BottomNav";
-import { TransactionResult } from "@/components/SendView";
+import type { TransactionResult } from "@/components/SendView";
 
 export interface WalletInfo {
   name: string;
@@ -14,10 +14,10 @@ export interface WalletInfo {
   usdcBalance?: string;
 }
 
-export type TabType = "wallet" | "send" | "activity";
+export type TabType = "wallet" | "chat" | "activity";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabType>("wallet");
+  const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
   const [transactions, setTransactions] = useState<TransactionResult[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -49,7 +49,11 @@ export default function Home() {
 
   const handleWalletCreated = useCallback(
     (wallet: WalletInfo) => {
-      setWallets((prev) => [...prev, wallet]);
+      setWallets((prev) => {
+        // Avoid duplicates
+        if (prev.some((w) => w.address === wallet.address)) return prev;
+        return [...prev, wallet];
+      });
       refreshBalance(wallet.address);
     },
     [refreshBalance]
@@ -74,7 +78,7 @@ export default function Home() {
             </svg>
           </div>
           <span className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-            Agent Pay
+            PayAgent
           </span>
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
@@ -84,26 +88,32 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto pb-24">
-        <div className="max-w-lg mx-auto px-4">
+      <main className="flex-1 overflow-hidden">
+        <div className="max-w-lg mx-auto px-4 h-full">
           {activeTab === "wallet" && (
-            <WalletView
+            <div className="overflow-y-auto pb-24" style={{ height: "calc(100vh - 120px)" }}>
+              <WalletView
+                wallets={wallets}
+                onWalletCreated={handleWalletCreated}
+                onRefreshBalance={refreshBalance}
+                onRefreshAll={refreshAllBalances}
+                loading={balanceLoading}
+              />
+            </div>
+          )}
+          {activeTab === "chat" && (
+            <ChatView
               wallets={wallets}
               onWalletCreated={handleWalletCreated}
               onRefreshBalance={refreshBalance}
-              onRefreshAll={refreshAllBalances}
-              loading={balanceLoading}
-            />
-          )}
-          {activeTab === "send" && (
-            <SendView
-              wallets={wallets}
-              onTransferComplete={handleTransferComplete}
-              onNavigateToWallet={() => setActiveTab("wallet")}
             />
           )}
           {activeTab === "activity" && (
-            <ActivityView transactions={transactions} />
+            <div className="overflow-y-auto pb-24" style={{ height: "calc(100vh - 120px)" }}>
+              <ActivityView
+                transactions={transactions}
+              />
+            </div>
           )}
         </div>
       </main>

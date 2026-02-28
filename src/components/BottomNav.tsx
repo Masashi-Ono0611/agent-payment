@@ -22,12 +22,11 @@ const tabs: { id: TabType; label: string; icon: (active: boolean) => React.React
     ),
   },
   {
-    id: "send",
-    label: "Send",
+    id: "chat",
+    label: "Chat",
     icon: (active) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--accent)" : "var(--text-tertiary)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 19V5" />
-        <path d="M5 12l7-7 7 7" />
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },

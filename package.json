@@ -10,11 +10,15 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.36",
+    "@ai-sdk/react": "^3.0.106",
     "@coinbase/cdp-sdk": "^1.44.1",
+    "ai": "^6.0.104",
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "viem": "^2.46.3"
+    "viem": "^2.46.3",
+    "zod": "3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
