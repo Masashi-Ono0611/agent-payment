@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState, useRef, useEffect, useMemo, useCallback, FormEvent } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, FormEvent } from "react";
 import type { WalletInfo } from "@/app/page";
 
 interface ChatViewProps {
@@ -32,10 +32,15 @@ export default function ChatView({
 
   // Keep refs so the transport body always has latest data
   const walletsRef = useRef(wallets);
-  walletsRef.current = wallets;
   const connectedRef = useRef(connectedAddress);
-  connectedRef.current = connectedAddress;
 
+  // Update refs in useLayoutEffect to avoid lint errors about accessing refs during render
+  useLayoutEffect(() => {
+    walletsRef.current = wallets;
+    connectedRef.current = connectedAddress;
+  }, [wallets, connectedAddress]);
+
+  /* eslint-disable react-hooks/refs -- refs are accessed in a lazy callback (body function), not during render */
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -49,6 +54,7 @@ export default function ChatView({
       }),
     []
   );
+  /* eslint-enable react-hooks/refs */
 
   const { messages, sendMessage, status, error } = useChat({ transport });
 
