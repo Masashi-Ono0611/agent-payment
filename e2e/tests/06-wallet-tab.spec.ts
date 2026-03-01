@@ -10,7 +10,8 @@ test.describe("Section 9: Wallet Tab Operations", () => {
   test("9-1: wallet tab shows total balance and empty state", async ({ page }) => {
     await page.getByTestId("tab-wallet").click();
     await expect(page.getByTestId("wallet-view")).toBeVisible();
-    await expect(page.getByTestId("total-usd")).toHaveText("$0.00");
+    // Total balances now shows ETH and USDC separately (no USD estimate for testnet)
+    await expect(page.getByTestId("total-balances")).toBeVisible();
     await expect(page.getByTestId("wallet-count")).toContainText("0 wallets");
     await expect(page.getByTestId("wallets-empty")).toBeVisible();
   });
