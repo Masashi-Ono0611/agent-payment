@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { isAddress, parseEther } from "viem";
-import { getCdpClient } from "@/lib/cdp";
-import { publicClient, parseUsdcUnits } from "@/lib/viem";
+import { isAddress } from "viem";
+import { executeTransfer } from "@/lib/transfer";
 
 export const maxDuration = 60;
 
@@ -45,44 +44,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const cdp = getCdpClient();
-    const sender = await cdp.evm.getOrCreateAccount({ name: fromName });
-
-    let transactionHash: `0x${string}`;
-
-    if (token === "eth") {
-      const baseAccount = await sender.useNetwork("base-sepolia");
-      const result = await baseAccount.sendTransaction({
-        transaction: {
-          to,
-          value: parseEther(amount),
-        },
-      });
-      transactionHash = result.transactionHash;
-    } else {
-      const result = await sender.transfer({
-        to,
-        amount: parseUsdcUnits(amount),
-        token: "usdc",
-        network: "base-sepolia",
-      });
-      transactionHash = result.transactionHash;
-    }
-
-    const receipt = await publicClient.waitForTransactionReceipt({
-      hash: transactionHash,
+    const result = await executeTransfer({
+      fromWalletName: fromName,
+      toAddress: to as `0x${string}`,
+      amount,
+      token,
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        transactionHash,
-        from: sender.address,
-        to,
-        amount,
-        token,
-        status: receipt.status === "success" ? "confirmed" : "failed",
-        explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
+        transactionHash: result.transactionHash,
+        from: result.from,
+        to: result.to,
+        amount: result.amount,
+        token: result.token,
+        status: result.success ? "confirmed" : "failed",
+        explorerUrl: result.explorerUrl,
       },
     });
   } catch (error) {
