@@ -9,13 +9,16 @@ import { executeTransfer } from "@/lib/transfer";
 
 export const maxDuration = 60;
 
-// Validate required env vars at module load
-const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL;
-const ANTHROPIC_AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
-if (!ANTHROPIC_BASE_URL || !ANTHROPIC_AUTH_TOKEN) {
-  throw new Error(
-    "Missing ANTHROPIC_BASE_URL or ANTHROPIC_AUTH_TOKEN. Set them in .env.local"
-  );
+// Helper to get required env vars (validated at runtime, not build time)
+function getEnvConfig() {
+  const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL;
+  const ANTHROPIC_AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
+  if (!ANTHROPIC_BASE_URL || !ANTHROPIC_AUTH_TOKEN) {
+    throw new Error(
+      "Missing ANTHROPIC_BASE_URL or ANTHROPIC_AUTH_TOKEN. Set them in .env.local"
+    );
+  }
+  return { ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN };
 }
 
 // Proxy mangles tool names in streaming: create_wallet → CreateWallet_tool
@@ -243,6 +246,7 @@ export async function POST(req: Request) {
       }
     }
 
+    const { ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN } = getEnvConfig();
     const provider = createOpenAI({
       baseURL: ANTHROPIC_BASE_URL + "/v1",
       apiKey: ANTHROPIC_AUTH_TOKEN,
