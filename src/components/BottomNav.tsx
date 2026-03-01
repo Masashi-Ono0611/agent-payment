@@ -5,7 +5,6 @@ import { TabType } from "@/app/page";
 interface BottomNavProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
-  txCount: number;
 }
 
 const tabs: { id: TabType; label: string; icon: (active: boolean) => React.ReactNode }[] = [
@@ -30,19 +29,9 @@ const tabs: { id: TabType; label: string; icon: (active: boolean) => React.React
       </svg>
     ),
   },
-  {
-    id: "activity",
-    label: "Activity",
-    icon: (active) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--accent)" : "var(--text-tertiary)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
 ];
 
-export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNavProps) {
+export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav
       data-testid="bottom-nav"
@@ -72,15 +61,6 @@ export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNav
             >
               {tab.label}
             </span>
-            {tab.id === "activity" && txCount > 0 && (
-              <span
-                data-testid="activity-badge"
-                className="absolute -top-0.5 right-3 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold text-white px-1"
-                style={{ background: "var(--accent)" }}
-              >
-                {txCount}
-              </span>
-            )}
           </button>
         ))}
       </div>

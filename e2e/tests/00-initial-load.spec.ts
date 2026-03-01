@@ -28,11 +28,10 @@ test.describe("Section 0: Initial Load", () => {
     await expect(page.getByTestId("suggestion-2")).toBeVisible();
   });
 
-  test("0-5: bottom navigation shows 3 tabs with Chat active", async ({ page }) => {
+  test("0-5: bottom navigation shows 2 tabs with Chat active", async ({ page }) => {
     const nav = page.getByTestId("bottom-nav");
     await expect(nav).toBeVisible();
     await expect(page.getByTestId("tab-wallet")).toBeVisible();
     await expect(page.getByTestId("tab-chat")).toBeVisible();
-    await expect(page.getByTestId("tab-activity")).toBeVisible();
   });
 });

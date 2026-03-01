@@ -13,11 +13,6 @@ test.describe("Tab Navigation", () => {
     await expect(page.getByTestId("wallets-empty")).toBeVisible();
   });
 
-  test("switch to Activity tab", async ({ page }) => {
-    await page.getByTestId("tab-activity").click();
-    await expect(page.getByTestId("activity-empty")).toBeVisible();
-  });
-
   test("switch back to Chat tab", async ({ page }) => {
     await page.getByTestId("tab-wallet").click();
     await expect(page.getByTestId("wallet-view")).toBeVisible();

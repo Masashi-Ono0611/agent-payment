@@ -5,7 +5,7 @@ import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import WalletView from "@/components/WalletView";
 import ChatView from "@/components/ChatView";
-import ActivityView from "@/components/ActivityView";
+
 import BottomNav from "@/components/BottomNav";
 
 export interface WalletInfo {
@@ -15,25 +15,12 @@ export interface WalletInfo {
   usdcBalance?: string;
 }
 
-export interface TransactionRecord {
-  transactionHash: string;
-  from: string;
-  to: string;
-  amount: string;
-  token: string;
-  status: string;
-  explorerUrl: string;
-  timestamp: number;
-}
-
-export type TabType = "wallet" | "chat" | "activity";
+export type TabType = "wallet" | "chat";
 
 export default function Home() {
   const { address: connectedAddress, isConnected } = useAccount();
   const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
-  const [transactions] = useState<TransactionRecord[]>([]);
-
   // Track per-wallet loading state to avoid race conditions
   const loadingAddresses = useRef<Set<string>>(new Set());
   const [balanceLoading, setBalanceLoading] = useState(false);
@@ -119,36 +106,26 @@ export default function Home() {
       {/* Main Content */}
       <main data-testid="main-content" className="flex-1 overflow-hidden">
         <div className="max-w-lg mx-auto px-4 h-full">
-          {activeTab === "wallet" && (
-            <div
-              className="overflow-y-auto pb-24"
-              style={{ height: "calc(100vh - 120px)" }}
-            >
-              <WalletView
-                wallets={wallets}
-                onWalletCreated={handleWalletCreated}
-                onRefreshBalance={refreshBalance}
-                onRefreshAll={refreshAllBalances}
-                loading={balanceLoading}
-              />
-            </div>
-          )}
-          {activeTab === "chat" && (
+          <div
+            className="overflow-y-auto pb-24"
+            style={{ height: "calc(100vh - 120px)", display: activeTab === "wallet" ? undefined : "none" }}
+          >
+            <WalletView
+              wallets={wallets}
+              onWalletCreated={handleWalletCreated}
+              onRefreshBalance={refreshBalance}
+              onRefreshAll={refreshAllBalances}
+              loading={balanceLoading}
+            />
+          </div>
+          <div style={{ display: activeTab === "chat" ? undefined : "none", height: "100%" }}>
             <ChatView
               wallets={wallets}
               onWalletCreated={handleWalletCreated}
               onRefreshBalance={refreshBalance}
               connectedAddress={isConnected ? connectedAddress : undefined}
             />
-          )}
-          {activeTab === "activity" && (
-            <div
-              className="overflow-y-auto pb-24"
-              style={{ height: "calc(100vh - 120px)" }}
-            >
-              <ActivityView transactions={transactions} />
-            </div>
-          )}
+          </div>
         </div>
       </main>
 
@@ -156,7 +133,6 @@ export default function Home() {
       <BottomNav
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        txCount={transactions.length}
       />
     </div>
   );
