@@ -50,7 +50,7 @@ export default function ChatView({
     []
   );
 
-  const { messages, sendMessage, status } = useChat({ transport });
+  const { messages, sendMessage, status, error } = useChat({ transport });
 
   const isLoading = status === "streaming" || status === "submitted";
 
@@ -257,6 +257,18 @@ export default function ChatView({
                 <span className="w-2 h-2 rounded-full pulse-dot" style={{ background: "var(--accent)", animationDelay: "200ms" }} />
                 <span className="w-2 h-2 rounded-full pulse-dot" style={{ background: "var(--accent)", animationDelay: "400ms" }} />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {status === "error" && (
+          <div className="flex justify-start animate-slide-up">
+            <div
+              className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm"
+              style={{ background: "rgba(239, 68, 68, 0.15)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.3)" }}
+            >
+              {error?.message || "An error occurred. Please try again."}
             </div>
           </div>
         )}
