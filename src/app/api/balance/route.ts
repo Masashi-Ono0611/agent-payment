@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { isAddress, formatEther } from "viem";
-import { publicClient, USDC_ADDRESS, ERC20_ABI, formatUsdcUnits } from "@/lib/viem";
+import { isAddress } from "viem";
+import { getBalances } from "@/lib/balance";
 
 export const maxDuration = 30;
 
@@ -17,24 +17,11 @@ export async function GET(request: Request) {
       );
     }
 
-    const [ethBalance, usdcBalance] = await Promise.all([
-      publicClient.getBalance({ address }),
-      publicClient
-        .readContract({
-          address: USDC_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        })
-        .catch(() => 0n),
-    ]);
+    const balances = await getBalances(address as `0x${string}`);
 
     return NextResponse.json({
       success: true,
-      data: {
-        eth: formatEther(ethBalance),
-        usdc: formatUsdcUnits(usdcBalance as bigint),
-      },
+      data: balances,
     });
   } catch (error) {
     console.error("Balance check error:", error);

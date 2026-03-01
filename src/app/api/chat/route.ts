@@ -2,15 +2,10 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, stepCountIs } from "ai";
 import { z } from "zod";
 import { isAddress } from "viem";
-import { formatEther, parseEther } from "viem";
 import { getCdpClient } from "@/lib/cdp";
-import {
-  publicClient,
-  USDC_ADDRESS,
-  ERC20_ABI,
-  parseUsdcUnits,
-  formatUsdcUnits,
-} from "@/lib/viem";
+import { publicClient } from "@/lib/viem";
+import { getBalances } from "@/lib/balance";
+import { executeTransfer } from "@/lib/transfer";
 
 export const maxDuration = 60;
 
@@ -281,22 +276,11 @@ export async function POST(req: Request) {
           if (!isValidAddress(address)) {
             return { success: false, error: "Invalid address format" };
           }
-          const [ethBalance, usdcBalance] = await Promise.all([
-            publicClient.getBalance({ address }),
-            publicClient
-              .readContract({
-                address: USDC_ADDRESS,
-                abi: ERC20_ABI,
-                functionName: "balanceOf",
-                args: [address],
-              })
-              .catch(() => 0n),
-          ]);
+          const balances = await getBalances(address);
           return {
             success: true,
             address,
-            eth: formatEther(ethBalance),
-            usdc: formatUsdcUnits(usdcBalance as bigint),
+            ...balances,
           };
         },
       },
@@ -365,45 +349,13 @@ export async function POST(req: Request) {
           if (!isValidAddress(toAddress)) {
             return { success: false, error: "Invalid recipient address" };
           }
-          const cdp = getCdpClient();
-          const sender = await cdp.evm.getOrCreateAccount({
-            name: fromWalletName,
-          });
-
-          let transactionHash: `0x${string}`;
-
-          if (token === "eth") {
-            const baseAccount = await sender.useNetwork("base-sepolia");
-            const result = await baseAccount.sendTransaction({
-              transaction: {
-                to: toAddress,
-                value: parseEther(amount),
-              },
-            });
-            transactionHash = result.transactionHash;
-          } else {
-            const result = await sender.transfer({
-              to: toAddress,
-              amount: parseUsdcUnits(amount),
-              token: "usdc",
-              network: "base-sepolia",
-            });
-            transactionHash = result.transactionHash;
-          }
-
-          const receipt = await publicClient.waitForTransactionReceipt({
-            hash: transactionHash,
-          });
-
-          return {
-            success: receipt.status === "success",
-            from: sender.address,
-            to: toAddress,
+          const result = await executeTransfer({
+            fromWalletName,
+            toAddress,
             amount,
             token,
-            transactionHash,
-            explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
-          };
+          });
+          return result;
         },
       },
     };
