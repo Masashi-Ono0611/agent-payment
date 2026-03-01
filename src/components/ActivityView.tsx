@@ -1,9 +1,9 @@
 "use client";
 
-import { TransactionResult } from "./SendView";
+import type { TransactionRecord } from "@/app/page";
 
 interface ActivityViewProps {
-  transactions: TransactionResult[];
+  transactions: TransactionRecord[];
 }
 
 function timeAgo(timestamp: number): string {
@@ -20,7 +20,7 @@ function timeAgo(timestamp: number): string {
 export default function ActivityView({ transactions }: ActivityViewProps) {
   if (transactions.length === 0) {
     return (
-      <div className="animate-fade-in text-center py-20">
+      <div data-testid="activity-empty" className="animate-fade-in text-center py-20">
         <div
           className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
           style={{ background: "var(--bg-secondary)" }}
@@ -41,7 +41,7 @@ export default function ActivityView({ transactions }: ActivityViewProps) {
   }
 
   return (
-    <div className="animate-fade-in mt-2 mx-1">
+    <div data-testid="activity-list" className="animate-fade-in mt-2 mx-1">
       <h2 className="text-[11px] uppercase tracking-wider font-medium mb-3 px-1" style={{ color: "var(--text-tertiary)" }}>
         Recent Transactions
       </h2>

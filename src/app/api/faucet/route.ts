@@ -1,21 +1,25 @@
 import { NextResponse } from "next/server";
+import { isAddress } from "viem";
 import { getCdpClient } from "@/lib/cdp";
-import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { publicClient } from "@/lib/viem";
 
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(),
-});
+export const maxDuration = 60;
 
 // POST /api/faucet - Request testnet funds
 export async function POST(request: Request) {
   try {
     const { address, token = "eth" } = await request.json();
 
-    if (!address) {
+    if (!address || !isAddress(address, { strict: false })) {
       return NextResponse.json(
-        { success: false, error: "Address is required" },
+        { success: false, error: "Valid address is required" },
+        { status: 400 }
+      );
+    }
+
+    if (token !== "eth" && token !== "usdc") {
+      return NextResponse.json(
+        { success: false, error: "Token must be 'eth' or 'usdc'" },
         { status: 400 }
       );
     }
@@ -45,7 +49,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to request faucet",
+        error:
+          error instanceof Error ? error.message : "Failed to request faucet",
       },
       { status: 500 }
     );

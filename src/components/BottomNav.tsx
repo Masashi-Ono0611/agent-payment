@@ -22,12 +22,11 @@ const tabs: { id: TabType; label: string; icon: (active: boolean) => React.React
     ),
   },
   {
-    id: "send",
-    label: "Send",
+    id: "chat",
+    label: "Chat",
     icon: (active) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={active ? "var(--accent)" : "var(--text-tertiary)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 19V5" />
-        <path d="M5 12l7-7 7 7" />
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
   },
@@ -46,6 +45,7 @@ const tabs: { id: TabType; label: string; icon: (active: boolean) => React.React
 export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNavProps) {
   return (
     <nav
+      data-testid="bottom-nav"
       className="fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur-xl"
       style={{
         background: "rgba(13, 17, 23, 0.92)",
@@ -56,6 +56,7 @@ export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNav
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            data-testid={`tab-${tab.id}`}
             onClick={() => onTabChange(tab.id)}
             className="flex flex-col items-center gap-0.5 px-6 py-1.5 rounded-xl transition-all duration-200 relative"
             style={{
@@ -73,6 +74,7 @@ export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNav
             </span>
             {tab.id === "activity" && txCount > 0 && (
               <span
+                data-testid="activity-badge"
                 className="absolute -top-0.5 right-3 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold text-white px-1"
                 style={{ background: "var(--accent)" }}
               >
