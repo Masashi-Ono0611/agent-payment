@@ -19,14 +19,22 @@ function formatBalance(val: string | undefined): string {
   return n.toFixed(4);
 }
 
-function totalUsd(wallets: WalletInfo[]): string {
+function totalEth(wallets: WalletInfo[]): string {
   let total = 0;
   for (const w of wallets) {
-    total += parseFloat(w.ethBalance || "0") * 2500; // rough ETH price
+    total += parseFloat(w.ethBalance || "0");
+  }
+  if (total === 0) return "0.00";
+  return total.toFixed(4);
+}
+
+function totalUsdc(wallets: WalletInfo[]): string {
+  let total = 0;
+  for (const w of wallets) {
     total += parseFloat(w.usdcBalance || "0");
   }
-  if (total === 0) return "$0.00";
-  return `$${total.toFixed(2)}`;
+  if (total === 0) return "0.00";
+  return total.toFixed(2);
 }
 
 export default function WalletView({
@@ -99,9 +107,16 @@ export default function WalletView({
         <p data-testid="total-balance" className="text-xs font-medium tracking-wide uppercase mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>
           Total Balance
         </p>
-        <h2 data-testid="total-usd" className="text-4xl font-bold text-white mb-1 tracking-tight">
-          {totalUsd(wallets)}
-        </h2>
+        <div data-testid="total-balances" className="flex justify-center gap-6 mb-1">
+          <div>
+            <h2 className="text-3xl font-bold text-white tracking-tight">{totalEth(wallets)}</h2>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>ETH</p>
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-white tracking-tight">{totalUsdc(wallets)}</h2>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>USDC</p>
+          </div>
+        </div>
         <p data-testid="wallet-count" className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
           {wallets.length} wallet{wallets.length !== 1 ? "s" : ""} &middot; Base Sepolia
         </p>
