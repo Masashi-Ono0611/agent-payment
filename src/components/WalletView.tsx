@@ -46,13 +46,20 @@ export default function WalletView({
 }: WalletViewProps) {
   const [walletName, setWalletName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [faucetLoading, setFaucetLoading] = useState<string | null>(null);
   const [faucetResult, setFaucetResult] = useState<{ address: string; success: boolean; message: string } | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
 
+  // Auto-dismiss errors after 5 seconds
+  const autoDismiss = (clearFn: () => void) => {
+    setTimeout(() => clearFn(), 5000);
+  };
+
   const handleCreate = async () => {
     if (!walletName.trim()) return;
     setCreating(true);
+    setCreateError(null);
     try {
       const res = await fetch("/api/wallet", {
         method: "POST",
@@ -63,9 +70,15 @@ export default function WalletView({
       if (json.success) {
         onWalletCreated(json.data);
         setWalletName("");
+      } else {
+        const errorMsg = json.error || "Failed to create wallet";
+        setCreateError(errorMsg);
+        autoDismiss(() => setCreateError(null));
       }
     } catch (err) {
-      console.error(err);
+      const errorMsg = err instanceof Error ? err.message : "Network error. Please try again.";
+      setCreateError(errorMsg);
+      autoDismiss(() => setCreateError(null));
     } finally {
       setCreating(false);
     }
@@ -81,14 +94,24 @@ export default function WalletView({
         body: JSON.stringify({ address, token }),
       });
       const json = await res.json();
-      setFaucetResult({
+      const result = {
         address,
         success: json.success,
-        message: json.success ? `${token.toUpperCase()} received` : json.error,
-      });
+        message: json.success 
+          ? `${token.toUpperCase()} received!` 
+          : (json.error || "Faucet request failed. You may be rate limited."),
+      };
+      setFaucetResult(result);
+      autoDismiss(() => setFaucetResult(null));
       if (json.success) onRefreshBalance(address);
-    } catch {
-      setFaucetResult({ address, success: false, message: "Failed" });
+    } catch (err) {
+      const result = {
+        address,
+        success: false,
+        message: err instanceof Error ? err.message : "Network error. Please try again.",
+      };
+      setFaucetResult(result);
+      autoDismiss(() => setFaucetResult(null));
     } finally {
       setFaucetLoading(null);
     }
@@ -175,6 +198,25 @@ export default function WalletView({
             )}
           </button>
         </div>
+        {/* Wallet Creation Error */}
+        {createError && (
+          <div
+            data-testid="wallet-create-error"
+            className="mt-2 px-3 py-2 rounded-lg text-xs animate-slide-up flex items-center justify-between"
+            style={{ background: "var(--danger-bg)", color: "var(--danger)" }}
+          >
+            <span>{createError}</span>
+            <button
+              onClick={() => setCreateError(null)}
+              className="ml-2 p-1 rounded hover:opacity-70"
+              aria-label="Dismiss error"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Wallet List */}
@@ -293,13 +335,22 @@ export default function WalletView({
                   {faucetResult && faucetResult.address === w.address && (
                     <div
                       data-testid={`faucet-result-${w.address}`}
-                      className="mt-2 px-3 py-2 rounded-lg text-xs animate-slide-up"
+                      className="mt-2 px-3 py-2 rounded-lg text-xs animate-slide-up flex items-center justify-between"
                       style={{
                         background: faucetResult.success ? "var(--success-bg)" : "var(--danger-bg)",
                         color: faucetResult.success ? "var(--success)" : "var(--danger)",
                       }}
                     >
-                      {faucetResult.message}
+                      <span>{faucetResult.message}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setFaucetResult(null); }}
+                        className="ml-2 p-1 rounded hover:opacity-70"
+                        aria-label="Dismiss"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
                   )}
                 </div>
