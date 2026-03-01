@@ -46,11 +46,82 @@ for (const name of TOOL_NAMES) {
   MANGLED_TO_ORIGINAL[snakeToPascalTool(name)] = name;
 }
 
-// Custom fetch that fixes proxy quirks in the SSE stream:
-// 1. Tool name mangling: CreateWallet_tool → create_wallet
-// 2. Wrong tool_calls index: 1 → 0
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ProxyMessage = any;
+
+// Fix proxy issue: when the AI SDK sends multiple tool results at once,
+// the proxy fails to translate them to Anthropic format (400 error).
+// We restructure the messages so each tool call/result is a separate pair.
+function fixParallelToolResults(body: string): string {
+  try {
+    const json = JSON.parse(body);
+    const messages: ProxyMessage[] = json.messages;
+    if (!messages) return body;
+
+    const fixed: ProxyMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+
+      // Check if this is an assistant message with multiple tool_calls
+      if (
+        msg.role === "assistant" &&
+        Array.isArray(msg.tool_calls) &&
+        msg.tool_calls.length > 1
+      ) {
+        // Collect all following tool messages
+        const toolResults: ProxyMessage[] = [];
+        let j = i + 1;
+        while (j < messages.length && messages[j].role === "tool") {
+          toolResults.push(messages[j]);
+          j++;
+        }
+
+        // Split into individual assistant+tool pairs
+        for (const toolCall of msg.tool_calls) {
+          const matchingResult = toolResults.find(
+            (tr: ProxyMessage) => tr.tool_call_id === toolCall.id
+          );
+          fixed.push({
+            role: "assistant",
+            content: null,
+            tool_calls: [toolCall],
+          });
+          if (matchingResult) {
+            fixed.push(matchingResult);
+          }
+        }
+
+        // Skip the tool messages we already processed
+        i = j - 1;
+        continue;
+      }
+
+      fixed.push(msg);
+    }
+
+    json.messages = fixed;
+    return JSON.stringify(json);
+  } catch {
+    return body;
+  }
+}
+
+// Custom fetch that fixes proxy quirks:
+// 1. Request: Split parallel tool results into sequential pairs
+// 2. Response: Fix mangled tool names (CreateWallet_tool → create_wallet)
+// 3. Response: Fix wrong tool_calls index (1 → 0)
 function createFixedFetch(): typeof globalThis.fetch {
   return async (input, init) => {
+    // Fix the request body if it contains parallel tool results
+    if (init?.body) {
+      const bodyStr =
+        typeof init.body === "string"
+          ? init.body
+          : new TextDecoder().decode(init.body as BufferSource);
+      const fixedBody = fixParallelToolResults(bodyStr);
+      init = { ...init, body: fixedBody };
+    }
+
     const res = await globalThis.fetch(input, init);
     if (!res.body) return res;
 
@@ -116,6 +187,7 @@ Tools available:
 - request_faucet: Get testnet ETH or USDC from the faucet
 
 Guidelines:
+- IMPORTANT: Call only ONE tool at a time. Never make parallel/simultaneous tool calls. If you need multiple operations (e.g., request both ETH and USDC), call them one at a time sequentially.
 - Be concise and friendly. Use short responses.
 - Always confirm the details before sending a payment (amount, token, recipient).
 - When showing addresses, abbreviate them (0x1234...abcd).
