@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PayAgent",
-  description: "AI payment assistant powered by Coinbase CDP on Base Sepolia",
+  title: "PayAgent - AI Payment Assistant",
+  description: "AI-powered payment assistant on Base Sepolia",
 };
 
 export const viewport: Viewport = {
