@@ -22,7 +22,7 @@ test.describe("Section 2: Chat Wallet Creation", () => {
 
     // AI response should contain the wallet address (abbreviated)
     const abbrev = `${WALLETS.myAgent.address.slice(0, 6)}...${WALLETS.myAgent.address.slice(-4)}`;
-    await expect(page.getByText(abbrev)).toBeVisible();
+    await expect(page.getByTestId("messages-container").getByText(abbrev)).toBeVisible();
   });
 
   test("2-5: create a second wallet", async ({ page }) => {
@@ -42,6 +42,6 @@ test.describe("Section 2: Chat Wallet Creation", () => {
 
     // Verify Bob's address appears
     const abbrev = `${WALLETS.bob.address.slice(0, 6)}...${WALLETS.bob.address.slice(-4)}`;
-    await expect(page.getByText(abbrev)).toBeVisible();
+    await expect(page.getByTestId("messages-container").getByText(abbrev)).toBeVisible();
   });
 });
