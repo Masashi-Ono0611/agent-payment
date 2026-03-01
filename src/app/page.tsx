@@ -88,6 +88,7 @@ export default function Home() {
     >
       {/* Header */}
       <header
+        data-testid="app-header"
         className="sticky top-0 z-30 px-5 pt-4 pb-3 flex items-center justify-between"
         style={{ background: "var(--bg-primary)" }}
       >
@@ -101,6 +102,7 @@ export default function Home() {
             </svg>
           </div>
           <span
+            data-testid="header-title"
             className="text-base font-semibold"
             style={{ color: "var(--text-primary)" }}
           >
@@ -115,7 +117,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden">
+      <main data-testid="main-content" className="flex-1 overflow-hidden">
         <div className="max-w-lg mx-auto px-4 h-full">
           {activeTab === "wallet" && (
             <div

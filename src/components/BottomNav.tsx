@@ -45,6 +45,7 @@ const tabs: { id: TabType; label: string; icon: (active: boolean) => React.React
 export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNavProps) {
   return (
     <nav
+      data-testid="bottom-nav"
       className="fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur-xl"
       style={{
         background: "rgba(13, 17, 23, 0.92)",
@@ -55,6 +56,7 @@ export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNav
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            data-testid={`tab-${tab.id}`}
             onClick={() => onTabChange(tab.id)}
             className="flex flex-col items-center gap-0.5 px-6 py-1.5 rounded-xl transition-all duration-200 relative"
             style={{
@@ -72,6 +74,7 @@ export default function BottomNav({ activeTab, onTabChange, txCount }: BottomNav
             </span>
             {tab.id === "activity" && txCount > 0 && (
               <span
+                data-testid="activity-badge"
                 className="absolute -top-0.5 right-3 min-w-[16px] h-4 flex items-center justify-center rounded-full text-[9px] font-bold text-white px-1"
                 style={{ background: "var(--accent)" }}
               >

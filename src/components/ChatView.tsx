@@ -117,11 +117,11 @@ export default function ChatView({
   };
 
   return (
-    <div className="animate-fade-in flex flex-col" style={{ height: "calc(100vh - 140px)" }}>
+    <div data-testid="chat-view" className="animate-fade-in flex flex-col" style={{ height: "calc(100vh - 140px)" }}>
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-1 py-3 space-y-3">
+      <div data-testid="messages-container" ref={scrollRef} className="flex-1 overflow-y-auto px-1 py-3 space-y-3">
         {messages.length === 0 && (
-          <div className="text-center py-12">
+          <div data-testid="chat-welcome" className="text-center py-12">
             <div
               className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
               style={{ background: "var(--accent-bg)" }}
@@ -143,9 +143,10 @@ export default function ChatView({
                 "Create a wallet called MyAgent",
                 "Check my balance",
                 "Get testnet ETH from faucet",
-              ].map((suggestion) => (
+              ].map((suggestion, index) => (
                 <button
                   key={suggestion}
+                  data-testid={`suggestion-${index}`}
                   onClick={() => handleSuggestion(suggestion)}
                   className="w-full text-left px-4 py-2.5 rounded-xl text-xs transition-all duration-200"
                   style={{
@@ -192,7 +193,7 @@ export default function ChatView({
             <div key={message.id}>
               {/* Tool indicators */}
               {toolParts.map((tp, i) => (
-                <div key={`${message.id}-tool-${i}`} className="flex justify-start mb-1.5">
+                <div key={`${message.id}-tool-${i}`} data-testid={`tool-indicator-${tp.name}`} className="flex justify-start mb-1.5">
                   <div
                     className="px-3 py-1.5 rounded-lg text-[11px] flex items-center gap-1.5"
                     style={{
@@ -201,15 +202,15 @@ export default function ChatView({
                     }}
                   >
                     {tp.state === "output-available" ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg data-testid="tool-checkmark" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : tp.state === "output-error" ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--error, red)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg data-testid="tool-error" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--error, red)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     ) : (
-                      <span className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full spinner" />
+                      <span data-testid="tool-spinner" className="w-3 h-3 border-2 border-current/30 border-t-current rounded-full spinner" />
                     )}
                     {tp.name.replace(/_/g, " ")}
                   </div>
@@ -246,7 +247,7 @@ export default function ChatView({
           });
           return !hasActiveToolCall;
         })() && (
-          <div className="flex justify-start animate-slide-up">
+          <div data-testid="chat-loading" className="flex justify-start animate-slide-up">
             <div
               className="px-4 py-3 rounded-2xl rounded-bl-md"
               style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
@@ -264,11 +265,13 @@ export default function ChatView({
       {/* Input */}
       <div className="px-1 pb-2 pt-2">
         <form
+          data-testid="chat-form"
           onSubmit={handleSubmit}
           className="flex items-center gap-2 rounded-xl p-1.5"
           style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
         >
           <input
+            data-testid="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Message PayAgent..."
@@ -277,6 +280,7 @@ export default function ChatView({
             style={{ color: "var(--text-primary)" }}
           />
           <button
+            data-testid="chat-submit"
             type="submit"
             disabled={isLoading || !input.trim()}
             className="w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 disabled:opacity-20"

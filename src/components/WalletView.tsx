@@ -87,7 +87,7 @@ export default function WalletView({
   };
 
   return (
-    <div className="animate-fade-in">
+    <div data-testid="wallet-view" className="animate-fade-in">
       {/* Balance Hero */}
       <div
         className="mx-1 mt-2 rounded-2xl p-6 text-center relative overflow-hidden"
@@ -96,13 +96,13 @@ export default function WalletView({
         }}
       >
         <div className="absolute inset-0 opacity-10" style={{ background: "radial-gradient(circle at 30% 20%, white 0%, transparent 60%)" }} />
-        <p className="text-xs font-medium tracking-wide uppercase mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <p data-testid="total-balance" className="text-xs font-medium tracking-wide uppercase mb-1" style={{ color: "rgba(255,255,255,0.6)" }}>
           Total Balance
         </p>
-        <h2 className="text-4xl font-bold text-white mb-1 tracking-tight">
+        <h2 data-testid="total-usd" className="text-4xl font-bold text-white mb-1 tracking-tight">
           {totalUsd(wallets)}
         </h2>
-        <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
+        <p data-testid="wallet-count" className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.5)" }}>
           {wallets.length} wallet{wallets.length !== 1 ? "s" : ""} &middot; Base Sepolia
         </p>
 
@@ -134,6 +134,7 @@ export default function WalletView({
           style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
         >
           <input
+            data-testid="wallet-name-input"
             type="text"
             placeholder="New wallet name..."
             value={walletName}
@@ -143,6 +144,7 @@ export default function WalletView({
             style={{ color: "var(--text-primary)" }}
           />
           <button
+            data-testid="wallet-create-btn"
             onClick={handleCreate}
             disabled={creating || !walletName.trim()}
             className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all duration-200 disabled:opacity-30"
@@ -163,7 +165,7 @@ export default function WalletView({
       {/* Wallet List */}
       <div className="mt-5 mx-1 space-y-2">
         {wallets.length === 0 ? (
-          <div className="text-center py-16">
+          <div data-testid="wallets-empty" className="text-center py-16">
             <div
               className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
               style={{ background: "var(--accent-bg)" }}
@@ -185,6 +187,7 @@ export default function WalletView({
           wallets.map((w) => (
             <div
               key={w.address}
+              data-testid={`wallet-card-${w.address}`}
               className="rounded-xl p-4 transition-all duration-200 cursor-pointer animate-slide-up"
               style={{
                 background: selectedWallet === w.address ? "var(--bg-tertiary)" : "var(--bg-secondary)",
@@ -241,7 +244,7 @@ export default function WalletView({
 
               {/* Expanded: Faucet Actions */}
               {selectedWallet === w.address && (
-                <div className="mt-3 pt-3 animate-slide-up" style={{ borderTop: "1px solid var(--border)" }}>
+                <div data-testid={`faucet-section-${w.address}`} className="mt-3 pt-3 animate-slide-up" style={{ borderTop: "1px solid var(--border)" }}>
                   <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "var(--text-tertiary)" }}>
                     Faucet
                   </p>
@@ -251,6 +254,7 @@ export default function WalletView({
                       return (
                         <button
                           key={token}
+                          data-testid={`faucet-${token}-${w.address}`}
                           onClick={(e) => { e.stopPropagation(); handleFaucet(w.address, token); }}
                           disabled={!!faucetLoading}
                           className="flex-1 py-2 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-40"
@@ -273,6 +277,7 @@ export default function WalletView({
                   </div>
                   {faucetResult && faucetResult.address === w.address && (
                     <div
+                      data-testid={`faucet-result-${w.address}`}
                       className="mt-2 px-3 py-2 rounded-lg text-xs animate-slide-up"
                       style={{
                         background: faucetResult.success ? "var(--success-bg)" : "var(--danger-bg)",
