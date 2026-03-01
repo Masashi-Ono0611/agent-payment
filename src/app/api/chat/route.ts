@@ -1,27 +1,27 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, convertToModelMessages, stepCountIs } from "ai";
 import { z } from "zod";
+import { isAddress } from "viem";
+import { formatEther, parseEther } from "viem";
 import { getCdpClient } from "@/lib/cdp";
-import { createPublicClient, http, formatEther, parseEther } from "viem";
-import { baseSepolia } from "viem/chains";
+import {
+  publicClient,
+  USDC_ADDRESS,
+  ERC20_ABI,
+  parseUsdcUnits,
+  formatUsdcUnits,
+} from "@/lib/viem";
 
 export const maxDuration = 60;
 
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(),
-});
-
-const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
-const ERC20_ABI = [
-  {
-    inputs: [{ name: "account", type: "address" }],
-    name: "balanceOf",
-    outputs: [{ name: "", type: "uint256" }],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
+// Validate required env vars at module load
+const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL;
+const ANTHROPIC_AUTH_TOKEN = process.env.ANTHROPIC_AUTH_TOKEN;
+if (!ANTHROPIC_BASE_URL || !ANTHROPIC_AUTH_TOKEN) {
+  throw new Error(
+    "Missing ANTHROPIC_BASE_URL or ANTHROPIC_AUTH_TOKEN. Set them in .env.local"
+  );
+}
 
 // Proxy mangles tool names in streaming: create_wallet → CreateWallet_tool
 // Build reverse mapping to fix them in the SSE stream
@@ -80,11 +80,14 @@ function createFixedFetch(): typeof globalThis.fetch {
   };
 }
 
+function isValidAddress(addr: string): addr is `0x${string}` {
+  return isAddress(addr, { strict: false });
+}
+
 function buildSystemPrompt(
   knownWallets: { name: string; address: string }[] | undefined,
-  connectedAddress: string | undefined,
+  connectedAddress: string | undefined
 ): string {
-  // Put wallet state FIRST so the model sees it prominently
   let walletSection = "";
   if (connectedAddress) {
     walletSection += `Connected browser wallet: ${connectedAddress}\n`;
@@ -124,41 +127,62 @@ Guidelines:
 }
 
 export async function POST(req: Request) {
-  const { messages: uiMessages, wallets, connectedAddress } = await req.json();
-  const modelMessages = await convertToModelMessages(uiMessages);
+  try {
+    const { messages: uiMessages, wallets, connectedAddress } =
+      await req.json();
+    const modelMessages = await convertToModelMessages(uiMessages);
 
-  const knownWallets = wallets as { name: string; address: string }[] | undefined;
-  const systemPrompt = buildSystemPrompt(knownWallets, connectedAddress);
+    // Sanitize inputs
+    const knownWallets = Array.isArray(wallets)
+      ? (wallets as { name: string; address: string }[]).filter(
+          (w) =>
+            typeof w.name === "string" &&
+            typeof w.address === "string" &&
+            isValidAddress(w.address)
+        )
+      : undefined;
 
-  // Also inject wallet context into the first user message as a hidden prefix,
-  // because some proxies strip or ignore system messages.
-  let walletContext = "";
-  if (connectedAddress) {
-    walletContext += `[Context: User's connected browser wallet is ${connectedAddress}] `;
-  }
-  if (knownWallets && knownWallets.length > 0) {
-    const list = knownWallets.map((w) => `"${w.name}": ${w.address}`).join(", ");
-    walletContext += `[Context: User's agent wallets are: ${list}] `;
-  }
-  if (walletContext && modelMessages.length > 0) {
-    const first = modelMessages[0];
-    if (first.role === "user" && Array.isArray(first.content)) {
-      const textPart = first.content.find(
-        (p: { type: string }) => p.type === "text"
-      ) as { type: string; text: string } | undefined;
-      if (textPart) {
-        textPart.text = walletContext + textPart.text;
+    const sanitizedConnectedAddress =
+      typeof connectedAddress === "string" && isValidAddress(connectedAddress)
+        ? connectedAddress
+        : undefined;
+
+    const systemPrompt = buildSystemPrompt(
+      knownWallets,
+      sanitizedConnectedAddress
+    );
+
+    // Also inject wallet context into the first user message as a hidden prefix,
+    // because some proxies strip or ignore system messages.
+    let walletContext = "";
+    if (sanitizedConnectedAddress) {
+      walletContext += `[Context: User's connected browser wallet is ${sanitizedConnectedAddress}] `;
+    }
+    if (knownWallets && knownWallets.length > 0) {
+      const list = knownWallets
+        .map((w) => `"${w.name}": ${w.address}`)
+        .join(", ");
+      walletContext += `[Context: User's agent wallets are: ${list}] `;
+    }
+    if (walletContext && modelMessages.length > 0) {
+      const first = modelMessages[0];
+      if (first.role === "user" && Array.isArray(first.content)) {
+        const textPart = first.content.find(
+          (p: { type: string }) => p.type === "text"
+        ) as { type: string; text: string } | undefined;
+        if (textPart) {
+          textPart.text = walletContext + textPart.text;
+        }
       }
     }
-  }
 
-  const provider = createOpenAI({
-    baseURL: process.env.ANTHROPIC_BASE_URL + "/v1",
-    apiKey: process.env.ANTHROPIC_AUTH_TOKEN,
-    fetch: createFixedFetch(),
-  });
+    const provider = createOpenAI({
+      baseURL: ANTHROPIC_BASE_URL + "/v1",
+      apiKey: ANTHROPIC_AUTH_TOKEN,
+      fetch: createFixedFetch(),
+    });
 
-  const tools = {
+    const tools = {
       create_wallet: {
         description: "Create a new agent wallet with a given name",
         inputSchema: z.object({
@@ -178,15 +202,17 @@ export async function POST(req: Request) {
           address: z.string().describe("The wallet address to check"),
         }),
         execute: async ({ address }: { address: string }) => {
-          const addr = address as `0x${string}`;
+          if (!isValidAddress(address)) {
+            return { success: false, error: "Invalid address format" };
+          }
           const [ethBalance, usdcBalance] = await Promise.all([
-            publicClient.getBalance({ address: addr }),
+            publicClient.getBalance({ address }),
             publicClient
               .readContract({
                 address: USDC_ADDRESS,
                 abi: ERC20_ABI,
                 functionName: "balanceOf",
-                args: [addr],
+                args: [address],
               })
               .catch(() => 0n),
           ]);
@@ -194,7 +220,7 @@ export async function POST(req: Request) {
             success: true,
             address,
             eth: formatEther(ethBalance),
-            usdc: (Number(usdcBalance) / 1e6).toFixed(6),
+            usdc: formatUsdcUnits(usdcBalance as bigint),
           };
         },
       },
@@ -213,9 +239,12 @@ export async function POST(req: Request) {
           address: string;
           token: "eth" | "usdc";
         }) => {
+          if (!isValidAddress(address)) {
+            return { success: false, error: "Invalid address format" };
+          }
           const cdp = getCdpClient();
           const { transactionHash } = await cdp.evm.requestFaucet({
-            address: address as `0x${string}`,
+            address,
             network: "base-sepolia",
             token,
           });
@@ -257,6 +286,9 @@ export async function POST(req: Request) {
           amount: string;
           token: "eth" | "usdc";
         }) => {
+          if (!isValidAddress(toAddress)) {
+            return { success: false, error: "Invalid recipient address" };
+          }
           const cdp = getCdpClient();
           const sender = await cdp.evm.getOrCreateAccount({
             name: fromWalletName,
@@ -268,15 +300,15 @@ export async function POST(req: Request) {
             const baseAccount = await sender.useNetwork("base-sepolia");
             const result = await baseAccount.sendTransaction({
               transaction: {
-                to: toAddress as `0x${string}`,
+                to: toAddress,
                 value: parseEther(amount),
               },
             });
             transactionHash = result.transactionHash;
           } else {
             const result = await sender.transfer({
-              to: toAddress as `0x${string}`,
-              amount: BigInt(Math.round(parseFloat(amount) * 1e6)),
+              to: toAddress,
+              amount: parseUsdcUnits(amount),
               token: "usdc",
               network: "base-sepolia",
             });
@@ -298,15 +330,25 @@ export async function POST(req: Request) {
           };
         },
       },
-  };
+    };
 
-  const result = streamText({
-    model: provider.chat("claude-sonnet-4-20250514"),
-    system: systemPrompt,
-    messages: modelMessages,
-    stopWhen: stepCountIs(5),
-    tools,
-  });
+    const result = streamText({
+      model: provider.chat("claude-sonnet-4-20250514"),
+      system: systemPrompt,
+      messages: modelMessages,
+      stopWhen: stepCountIs(5),
+      tools,
+    });
 
-  return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse();
+  } catch (error) {
+    console.error("Chat API error:", error);
+    return new Response(
+      JSON.stringify({
+        error:
+          error instanceof Error ? error.message : "Internal server error",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }

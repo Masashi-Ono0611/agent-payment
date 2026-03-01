@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState, useRef, useEffect, useMemo, FormEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, FormEvent } from "react";
 import type { WalletInfo } from "@/app/page";
 
 interface ChatViewProps {
@@ -61,6 +61,31 @@ export default function ChatView({
     }
   }, [messages, status]);
 
+  // Track which tool outputs we've already processed to avoid re-firing side effects
+  const processedToolsRef = useRef<Set<string>>(new Set());
+
+  const handleToolOutput = useCallback(
+    (toolKey: string, toolName: string, p: AnyPart) => {
+      if (processedToolsRef.current.has(toolKey)) return;
+      processedToolsRef.current.add(toolKey);
+
+      if (toolName === "create_wallet") {
+        const result = p.output as { success: boolean; name: string; address: string };
+        if (result?.success && result.address) {
+          onWalletCreated({ name: result.name, address: result.address });
+        }
+      }
+      if (toolName === "check_balance") {
+        const result = p.output as { address?: string };
+        if (result?.address) onRefreshBalance(result.address);
+      }
+      if (toolName === "request_faucet" || toolName === "send_payment") {
+        walletsRef.current.forEach((w) => onRefreshBalance(w.address));
+      }
+    },
+    [onWalletCreated, onRefreshBalance]
+  );
+
   // Sync wallet creations from tool calls
   useEffect(() => {
     for (const msg of messages) {
@@ -70,23 +95,13 @@ export default function ChatView({
         if (!toolName) continue;
         const p = part as AnyPart;
 
-        if (toolName === "create_wallet" && p.state === "output-available") {
-          const result = p.output as { success: boolean; name: string; address: string };
-          if (result?.success && result.address) {
-            onWalletCreated({ name: result.name, address: result.address });
-          }
-        }
-        if (toolName === "check_balance" && p.state === "output-available") {
-          const result = p.output as { address?: string };
-          if (result?.address) onRefreshBalance(result.address);
-        }
-        if ((toolName === "request_faucet" || toolName === "send_payment") && p.state === "output-available") {
-          wallets.forEach((w) => onRefreshBalance(w.address));
+        if (p.state === "output-available") {
+          const toolKey = `${msg.id}-${toolName}-${p.toolCallId ?? ""}`;
+          handleToolOutput(toolKey, toolName, p);
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
+  }, [messages, handleToolOutput]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

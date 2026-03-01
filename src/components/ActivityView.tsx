@@ -1,9 +1,9 @@
 "use client";
 
-import { TransactionResult } from "./SendView";
+import type { TransactionRecord } from "@/app/page";
 
 interface ActivityViewProps {
-  transactions: TransactionResult[];
+  transactions: TransactionRecord[];
 }
 
 function timeAgo(timestamp: number): string {

@@ -1,21 +1,46 @@
 import { NextResponse } from "next/server";
+import { isAddress, parseEther } from "viem";
 import { getCdpClient } from "@/lib/cdp";
-import { createPublicClient, http, parseEther } from "viem";
-import { baseSepolia } from "viem/chains";
+import { publicClient, parseUsdcUnits } from "@/lib/viem";
 
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(),
-});
+export const maxDuration = 60;
 
 // POST /api/transfer - Send a payment
 export async function POST(request: Request) {
   try {
     const { fromName, to, amount, token = "eth" } = await request.json();
 
-    if (!fromName || !to || !amount) {
+    if (
+      typeof fromName !== "string" ||
+      !fromName ||
+      typeof to !== "string" ||
+      !to ||
+      typeof amount !== "string" ||
+      !amount
+    ) {
       return NextResponse.json(
-        { success: false, error: "fromName, to, and amount are required" },
+        { success: false, error: "fromName, to, and amount are required (all strings)" },
+        { status: 400 }
+      );
+    }
+
+    if (!/^\d+(\.\d+)?$/.test(amount)) {
+      return NextResponse.json(
+        { success: false, error: "amount must be a positive decimal number" },
+        { status: 400 }
+      );
+    }
+
+    if (!isAddress(to, { strict: false })) {
+      return NextResponse.json(
+        { success: false, error: "Invalid recipient address" },
+        { status: 400 }
+      );
+    }
+
+    if (token !== "eth" && token !== "usdc") {
+      return NextResponse.json(
+        { success: false, error: `Unsupported token: ${token}` },
         { status: 400 }
       );
     }
@@ -23,69 +48,50 @@ export async function POST(request: Request) {
     const cdp = getCdpClient();
     const sender = await cdp.evm.getOrCreateAccount({ name: fromName });
 
+    let transactionHash: `0x${string}`;
+
     if (token === "eth") {
-      // Send ETH using sendTransaction
       const baseAccount = await sender.useNetwork("base-sepolia");
-      const { transactionHash } = await baseAccount.sendTransaction({
+      const result = await baseAccount.sendTransaction({
         transaction: {
-          to: to as `0x${string}`,
+          to,
           value: parseEther(amount),
         },
       });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: transactionHash,
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          transactionHash,
-          from: sender.address,
-          to,
-          amount,
-          token,
-          status: receipt.status === "success" ? "confirmed" : "failed",
-          explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
-        },
-      });
-    } else if (token === "usdc") {
-      // Transfer USDC using the built-in transfer method
-      const { transactionHash } = await sender.transfer({
-        to: to as `0x${string}`,
-        amount: BigInt(Math.round(parseFloat(amount) * 1e6)), // USDC has 6 decimals
+      transactionHash = result.transactionHash;
+    } else {
+      const result = await sender.transfer({
+        to,
+        amount: parseUsdcUnits(amount),
         token: "usdc",
         network: "base-sepolia",
       });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: transactionHash,
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          transactionHash,
-          from: sender.address,
-          to,
-          amount,
-          token,
-          status: receipt.status === "success" ? "confirmed" : "failed",
-          explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
-        },
-      });
-    } else {
-      return NextResponse.json(
-        { success: false, error: `Unsupported token: ${token}` },
-        { status: 400 }
-      );
+      transactionHash = result.transactionHash;
     }
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: transactionHash,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        transactionHash,
+        from: sender.address,
+        to,
+        amount,
+        token,
+        status: receipt.status === "success" ? "confirmed" : "failed",
+        explorerUrl: `https://sepolia.basescan.org/tx/${transactionHash}`,
+      },
+    });
   } catch (error) {
     console.error("Transfer error:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to send transfer",
+        error:
+          error instanceof Error ? error.message : "Failed to send transfer",
       },
       { status: 500 }
     );
