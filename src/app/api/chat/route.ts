@@ -27,7 +27,6 @@ const ERC20_ABI = [
 // Build reverse mapping to fix them in the SSE stream
 const TOOL_NAMES = [
   "create_wallet",
-  "list_wallets",
   "check_balance",
   "request_faucet",
   "send_payment",
@@ -47,7 +46,9 @@ for (const name of TOOL_NAMES) {
   MANGLED_TO_ORIGINAL[snakeToPascalTool(name)] = name;
 }
 
-// Custom fetch that fixes mangled tool names in SSE stream
+// Custom fetch that fixes proxy quirks in the SSE stream:
+// 1. Tool name mangling: CreateWallet_tool → create_wallet
+// 2. Wrong tool_calls index: 1 → 0
 function createFixedFetch(): typeof globalThis.fetch {
   return async (input, init) => {
     const res = await globalThis.fetch(input, init);
@@ -56,13 +57,17 @@ function createFixedFetch(): typeof globalThis.fetch {
     const transformStream = new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
         let text = new TextDecoder().decode(chunk);
+
         // Fix mangled tool names: CreateWallet_tool → create_wallet
         for (const [mangled, original] of Object.entries(MANGLED_TO_ORIGINAL)) {
           text = text.replaceAll(`"${mangled}"`, `"${original}"`);
         }
+
         // Fix tool_calls index: proxy sends index:1 instead of 0
-        text = text.replaceAll('"index":1,"id":"toolu_', '"index":0,"id":"toolu_');
-        text = text.replaceAll('"index":1,"function"', '"index":0,"function"');
+        if (text.includes("tool_calls")) {
+          text = text.replace(/"index":1/g, '"index":0');
+        }
+
         controller.enqueue(new TextEncoder().encode(text));
       },
     });
@@ -75,15 +80,37 @@ function createFixedFetch(): typeof globalThis.fetch {
   };
 }
 
-const SYSTEM_PROMPT = `You are PayAgent, an AI payment assistant on Base Sepolia testnet.
-You help users manage crypto wallets and send payments through natural language.
+function buildSystemPrompt(
+  knownWallets: { name: string; address: string }[] | undefined,
+  connectedAddress: string | undefined,
+): string {
+  // Put wallet state FIRST so the model sees it prominently
+  let walletSection = "";
+  if (connectedAddress) {
+    walletSection += `Connected browser wallet: ${connectedAddress}\n`;
+  }
+  if (knownWallets && knownWallets.length > 0) {
+    walletSection += "Agent wallets:\n";
+    walletSection += knownWallets
+      .map((w) => `- "${w.name}": ${w.address}`)
+      .join("\n");
+  } else {
+    walletSection += "Agent wallets: none yet";
+  }
 
-You have access to these tools:
+  return `You are PayAgent, an AI payment assistant on Base Sepolia testnet.
+
+=== USER'S WALLETS (you know this) ===
+${walletSection}
+=== END WALLETS ===
+
+When the user asks "what wallets do I have", "my address", "my wallet", or similar, answer using the wallet info above. Never say you don't have this info.
+
+Tools available:
 - create_wallet: Create a new agent wallet
 - check_balance: Check ETH and USDC balance of a wallet
 - send_payment: Send ETH or USDC from an agent wallet to any address
 - request_faucet: Get testnet ETH or USDC from the faucet
-- list_wallets: List all agent wallets
 
 Guidelines:
 - Be concise and friendly. Use short responses.
@@ -94,22 +121,35 @@ Guidelines:
 - After successful transactions, share the BaseScan explorer link.
 - You work on Base Sepolia testnet - remind users this is testnet if they seem confused about real funds.
 - Format currency amounts nicely (e.g., "0.001 ETH", "5.00 USDC").`;
+}
 
 export async function POST(req: Request) {
   const { messages: uiMessages, wallets, connectedAddress } = await req.json();
   const modelMessages = await convertToModelMessages(uiMessages);
 
-  // Build dynamic system prompt with wallet context
   const knownWallets = wallets as { name: string; address: string }[] | undefined;
-  let systemPrompt = SYSTEM_PROMPT;
+  const systemPrompt = buildSystemPrompt(knownWallets, connectedAddress);
+
+  // Also inject wallet context into the first user message as a hidden prefix,
+  // because some proxies strip or ignore system messages.
+  let walletContext = "";
   if (connectedAddress) {
-    systemPrompt += `\n\nThe user has connected their browser wallet: ${connectedAddress}\nYou can use this as a recipient address when the user says "send to my wallet" or "send to me".`;
+    walletContext += `[Context: User's connected browser wallet is ${connectedAddress}] `;
   }
   if (knownWallets && knownWallets.length > 0) {
-    const walletList = knownWallets
-      .map((w: { name: string; address: string }) => `- "${w.name}": ${w.address}`)
-      .join("\n");
-    systemPrompt += `\n\nThe user has the following agent wallets:\n${walletList}\nUse these when the user refers to a wallet by name or asks about their wallets.`;
+    const list = knownWallets.map((w) => `"${w.name}": ${w.address}`).join(", ");
+    walletContext += `[Context: User's agent wallets are: ${list}] `;
+  }
+  if (walletContext && modelMessages.length > 0) {
+    const first = modelMessages[0];
+    if (first.role === "user" && Array.isArray(first.content)) {
+      const textPart = first.content.find(
+        (p: { type: string }) => p.type === "text"
+      ) as { type: string; text: string } | undefined;
+      if (textPart) {
+        textPart.text = walletContext + textPart.text;
+      }
+    }
   }
 
   const provider = createOpenAI({
@@ -128,15 +168,6 @@ export async function POST(req: Request) {
           const cdp = getCdpClient();
           const account = await cdp.evm.getOrCreateAccount({ name });
           return { success: true, name, address: account.address };
-        },
-      },
-
-      list_wallets: {
-        description:
-          "List all agent wallets that have been created in this session. Call this when user asks about their wallets.",
-        inputSchema: z.object({}),
-        execute: async () => {
-          return { success: true, signal: "LIST_WALLETS" };
         },
       },
 
