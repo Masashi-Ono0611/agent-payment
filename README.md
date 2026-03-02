@@ -17,6 +17,7 @@ Base Sepolia テストネット上で動作する AI 決済アシスタント。
 - [CDP SDK の使用箇所](#cdp-sdk-の使用箇所)
 - [テスト](#テスト)
 - [ディレクトリ構成](#ディレクトリ構成)
+- [x402 プロトコル対応 (次のステップ)](#x402-プロトコル対応-次のステップ)
 
 ---
 
@@ -509,6 +510,93 @@ agent-payment-demo/
 | ブラウザウォレット | MetaMask 等の拡張機能 | 拡張機能が管理 |
 
 > **注意**: UI 上のウォレット一覧とチャット履歴はページリロードで消えますが、CDP 上のウォレット自体は永続的に存在し、同じ名前で再度 `getOrCreateAccount()` を呼べば同じウォレットにアクセスできます。
+
+---
+
+## x402 プロトコル対応 (次のステップ)
+
+### x402 とは
+
+[x402](https://www.coinbase.com/developer-platform/products/x402) は、HTTP 402 (Payment Required) ステータスコードを活用した**インターネットネイティブの決済プロトコル**。Coinbase が開発し、AI エージェントが API やコンテンツに対してステーブルコインで自動支払いできる仕組みを提供する。
+
+```
+クライアント → GET /api/resource
+サーバー    ← 402 Payment Required (支払い条件を提示)
+クライアント → GET /api/resource + 支払い証明ヘッダー
+サーバー    ← 200 OK (コンテンツ返却)
+```
+
+### x402 対応ネットワーク
+
+**メインネット** ([公式ドキュメント](https://docs.cdp.coinbase.com/x402/network-support))
+
+| ネットワーク | CAIP-2 ID | トークン |
+|------------|-----------|---------|
+| Base | `eip155:8453` | USDC |
+| Solana | — | USDC |
+
+**テストネット** (x402.org 無料 Facilitator、API キー不要)
+
+| ネットワーク | CAIP-2 ID | 備考 |
+|------------|-----------|------|
+| Base Sepolia | `eip155:84532` | 本アプリの現行チェーンでそのままテスト可能 |
+| Solana Devnet | `solana:EtWTRABZaYq6i...` | SVM 用 |
+
+### PayAgent との統合イメージ
+
+本アプリは既に Base Sepolia + CDP Agent Wallet + テスト USDC の環境が揃っているため、x402 をそのまま統合できる。
+
+**Merchant 側 (サーバー)**: API ルートを `@x402/next` ミドルウェアで paywall 保護
+
+```typescript
+// 例: /api/paid-content を x402 で保護
+import { paymentMiddleware } from "@x402/next";
+
+export const middleware = paymentMiddleware(
+  "0x...",  // 受取アドレス
+  { maxAmountRequired: "$0.01" },
+  { network: "base-sepolia", facilitatorUrl: "https://x402.org/facilitator" }
+);
+```
+
+**Client 側 (AI エージェント)**: `@x402/fetch` で Agent Wallet から自動支払い
+
+```typescript
+import { wrapFetch } from "@x402/fetch";
+
+const x402Fetch = wrapFetch(fetch, agentWallet);
+const response = await x402Fetch("https://example.com/api/paid-content");
+// → 402 を受信 → Agent Wallet から USDC 自動支払い → コンテンツ取得
+```
+
+### 関連 SDK パッケージ
+
+| パッケージ | 役割 |
+|-----------|------|
+| `@x402/next` | Next.js ルートに paywall を設定 (merchant 側) |
+| `@x402/express` / `@x402/hono` | Express/Hono サーバーに paywall を設定 |
+| `@x402/fetch` | fetch に x402 自動支払いを追加 (client 側) |
+| `@x402/axios` | axios に x402 自動支払いを追加 (client 側) |
+| `@x402/evm` | EVM チェーン用の決済処理 |
+
+### メインネット移行時の変更点
+
+| 項目 | 現在 (Base Sepolia) | 移行後 (Base Mainnet) |
+|------|--------------------|-----------------------|
+| SDK 識別子 | `base-sepolia` | `base-mainnet` |
+| Chain ID | 84532 | 8453 |
+| トークン | テスト ETH / USDC | 本物の ETH / USDC |
+| USDC コントラクト | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | 要変更 (メインネットアドレス) |
+| Faucet | 使用可能 | 使用不可 (実資産) |
+| x402 Facilitator | x402.org (テスト用) | Coinbase CDP Facilitator |
+
+### 参考リンク
+
+- [coinbase/x402 (GitHub)](https://github.com/coinbase/x402)
+- [x402 公式ドキュメント](https://docs.cdp.coinbase.com/x402/welcome)
+- [Next.js フルスタックサンプル](https://github.com/coinbase/x402/tree/main/examples/typescript/fullstack/next)
+- [x402.org テストネット Facilitator](https://www.xpay.sh/x402-facilitators/x402-org/)
+- [ローカル開発用 Facilitator](https://github.com/fortylabs/local-x402-facilitator)
 
 ---
 
